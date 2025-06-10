@@ -17,9 +17,7 @@ resource "aws_organizations_policy" "deny_root_user" {
       {
         Sid    = "DenyRootUserActions"
         Effect = "Deny"
-        Principal = {
-          AWS = "*"
-        }
+        Principal = "*"
         Action = "*"
         Resource = "*"
         Condition = {
@@ -54,9 +52,7 @@ resource "aws_organizations_policy" "deny_expensive_instances" {
       {
         Sid    = "DenyExpensiveEC2Instances"
         Effect = "Deny"
-        Principal = {
-          AWS = "*"
-        }
+        Principal = "*"
         Action = [
           "ec2:RunInstances"
         ]
