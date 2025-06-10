@@ -10,6 +10,12 @@ variable "create_cost_control_policy" {
   default     = true
 }
 
+variable "create_vpc_protection_policy" {
+  description = "Create policy to deny VPC deletion"
+  type        = bool
+  default     = true
+}
+
 variable "attach_policies" {
   description = "Attach policies to organization (set to false for testing)"
   type        = bool

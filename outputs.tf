@@ -18,6 +18,11 @@ output "policies_attached" {
   value       = var.attach_policies
 }
 
+output "vpc_protection_policy_id" {
+  description = "ID of the VPC protection policy"
+  value       = var.create_vpc_protection_policy ? aws_organizations_policy.deny_vpc_deletion[0].id : null
+}
+
 output "target_id" {
   description = "Target ID where policies are attached"
   value       = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id

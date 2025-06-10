@@ -78,6 +78,37 @@ resource "aws_organizations_policy" "deny_expensive_instances" {
   }
 }
 
+# ========================================
+resource "aws_organizations_policy" "deny_vpc_deletion" {
+  provider = aws.management_account
+  count    = var.create_vpc_protection_policy ? 1 : 0
+  
+  name = "DenyVPCDeletion"
+  type = "SERVICE_CONTROL_POLICY"
+  
+  content = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "DenyVPCDeletion"
+        Effect = "Deny"
+        Action = [
+          "ec2:DeleteVpc"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  description = "Prevent deletion of VPCs"
+  
+  tags = {
+    Name        = "DenyVPCDeletion"
+    Environment = "organization"
+    ManagedBy   = "terraform"
+  }
+}
+
 # POLICY ATTACHMENTS 
 resource "aws_organizations_policy_attachment" "deny_root_user_attachment" {
   provider  = aws.management_account
@@ -92,5 +123,13 @@ resource "aws_organizations_policy_attachment" "deny_expensive_instances_attachm
   count     = var.attach_policies && var.create_cost_control_policy ? 1 : 0
   
   policy_id = aws_organizations_policy.deny_expensive_instances[0].id
+  target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
+}
+
+resource "aws_organizations_policy_attachment" "deny_vpc_deletion_attachment" {
+  provider  = aws.management_account
+  count     = var.attach_policies && var.create_vpc_protection_policy ? 1 : 0
+
+  policy_id = aws_organizations_policy.deny_vpc_deletion[0].id
   target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
 }
