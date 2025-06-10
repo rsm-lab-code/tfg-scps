@@ -3,7 +3,7 @@ data "aws_organizations_organization" "main" {
   provider = aws.management_account
 }
 
-# BASIC SCP #1: DENY ROOT USER
+#DENY ROOT USER
 resource "aws_organizations_policy" "deny_root_user" {
   provider = aws.management_account
   count    = var.create_deny_root_policy ? 1 : 0
@@ -17,7 +17,6 @@ resource "aws_organizations_policy" "deny_root_user" {
       {
         Sid    = "DenyRootUserActions"
         Effect = "Deny"
-        Principal = "*"
         Action = "*"
         Resource = "*"
         Condition = {
@@ -38,7 +37,7 @@ resource "aws_organizations_policy" "deny_root_user" {
   }
 }
 
-# BASIC SCP #2: DENY EXPENSIVE INSTANCES
+#DENY EXPENSIVE INSTANCES
 resource "aws_organizations_policy" "deny_expensive_instances" {
   provider = aws.management_account
   count    = var.create_cost_control_policy ? 1 : 0
@@ -52,7 +51,6 @@ resource "aws_organizations_policy" "deny_expensive_instances" {
       {
         Sid    = "DenyExpensiveEC2Instances"
         Effect = "Deny"
-        Principal = "*"
         Action = [
           "ec2:RunInstances"
         ]
