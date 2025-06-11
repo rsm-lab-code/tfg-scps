@@ -57,11 +57,6 @@ resource "aws_organizations_policy" "iam_controls" {
           "iam:AttachRolePolicy"
         ]
         Resource = "*"
-        Condition = {
-          StringEquals = {
-            "iam:PolicyDocument" = "*"
-          }
-        }
       },
       {
         Sid    = "RequireIAMInstanceRoles"
@@ -71,15 +66,15 @@ resource "aws_organizations_policy" "iam_controls" {
         ]
         Resource = "arn:aws:ec2:*:*:instance/*"
         Condition = {
-          StringNotLike = {
-            "ec2:IamInstanceProfile" = "*"
+          Null = {
+            "ec2:IamInstanceProfile" = "true"
           }
         }
       }
     ]
   })
 
-  description = "IAM security controls from TFG requirements"
+  description = "IAM security controls"
   
   tags = {
     Name        = "IAMSecurityControls"
@@ -135,15 +130,6 @@ resource "aws_organizations_policy" "data_storage_controls" {
           "s3:PutObjectAcl"
         ]
         Resource = "*"
-        Condition = {
-          StringEquals = {
-            "s3:x-amz-acl" = [
-              "public-read",
-              "public-read-write",
-              "authenticated-read"
-            ]
-          }
-        }
       },
       {
         Sid    = "EnforceEBSEncryption"
@@ -205,7 +191,7 @@ resource "aws_organizations_policy" "data_storage_controls" {
     ]
   })
 
-  description = "Data storage security controls from TFG requirements"
+  description = "Data storage security controls"
   
   tags = {
     Name        = "DataStorageControls"
@@ -245,15 +231,15 @@ resource "aws_organizations_policy" "logging_protection" {
         ]
         Resource = "*"
         Condition = {
-          Bool = {
-            "cloudtrail:KMSKeyId" = "false"
+          Null = {
+            "cloudtrail:KMSKeyId" = "true"
           }
         }
       }
     ]
   })
 
-  description = "Logging protection controls from TFG requirements"
+  description = "Logging protection controls"
   
   tags = {
     Name        = "LoggingProtectionControls"
@@ -284,24 +270,6 @@ resource "aws_organizations_policy" "monitoring_protection" {
           "guardduty:UpdateDetector"
         ]
         Resource = "*"
-        Condition = {
-          Bool = {
-            "guardduty:Enable" = "false"
-          }
-        }
-      },
-      {
-        Sid    = "RequireVPCFlowLogging"
-        Effect = "Deny"
-        Action = [
-          "ec2:CreateVpc"
-        ]
-        Resource = "*"
-        Condition = {
-          Bool = {
-            "aws:RequestTag/VPCFlowLogsEnabled" = "false"
-          }
-        }
       },
       {
         Sid    = "ProtectVPCFlowLogs"
@@ -314,7 +282,7 @@ resource "aws_organizations_policy" "monitoring_protection" {
     ]
   })
 
-  description = "Monitoring protection controls from TFG requirements"
+  description = "Monitoring protection controls"
   
   tags = {
     Name        = "MonitoringProtectionControls"
@@ -342,23 +310,11 @@ resource "aws_organizations_policy" "networking_controls" {
         ]
         Resource = "*"
         Condition = {
-          And = [
-            {
-              StringEquals = {
-                "ec2:FromPort" = ["22", "3389", "1433", "3306", "5432", "1521"]
-              }
-            },
-            {
-              StringEquals = {
-                "ec2:IpProtocol" = "tcp"
-              }
-            },
-            {
-              StringEquals = {
-                "ec2:cidr" = "0.0.0.0/0"
-              }
-            }
-          ]
+          StringEquals = {
+            "ec2:FromPort" = ["22", "3389", "1433", "3306", "5432", "1521"]
+            "ec2:IpProtocol" = "tcp"
+            "ec2:cidr" = "0.0.0.0/0"
+          }
         }
       },
       {
@@ -376,42 +332,11 @@ resource "aws_organizations_policy" "networking_controls" {
             "ec2:GroupName" = "default"
           }
         }
-      },
-      {
-        Sid    = "RequirePrivateLink"
-        Effect = "Deny"
-        Action = [
-          "ec2:CreateVpcEndpoint"
-        ]
-        Resource = "*"
-        Condition = {
-          StringNotEquals = {
-            "ec2:VpceServiceName" = "com.amazonaws.vpce.*"
-          }
-        }
-      },
-      {
-        Sid    = "EnforceTLSVersion"
-        Effect = "Deny"
-        Action = [
-          "elasticloadbalancing:CreateListener",
-          "elasticloadbalancing:ModifyListener"
-        ]
-        Resource = "*"
-        Condition = {
-          StringNotEquals = {
-            "elasticloadbalancing:SecurityPolicy" = [
-              "ELBSecurityPolicy-TLS-1-2-2017-01",
-              "ELBSecurityPolicy-TLS-1-2-Ext-2018-06",
-              "ELBSecurityPolicy-FS-1-2-Res-2020-10"
-            ]
-          }
-        }
       }
     ]
   })
 
-  description = "Networking security controls from TFG requirements"
+  description = "Networking security controls"
   
   tags = {
     Name        = "NetworkingSecurityControls"
