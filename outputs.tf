@@ -3,24 +3,36 @@ output "organization_id" {
   value       = data.aws_organizations_organization.main.id
 }
 
-output "deny_root_policy_id" {
-  description = "ID of the deny root user policy"
-  value       = var.create_deny_root_policy ? aws_organizations_policy.deny_root_user[0].id : null
+# Individual policy IDs
+output "iam_controls_policy_id" {
+  description = "ID of the IAM controls policy"
+  value       = var.create_iam_controls_policy ? aws_organizations_policy.iam_controls[0].id : null
 }
 
-output "cost_control_policy_id" {
-  description = "ID of the cost control policy"
-  value       = var.create_cost_control_policy ? aws_organizations_policy.deny_expensive_instances[0].id : null
+output "data_storage_policy_id" {
+  description = "ID of the data storage controls policy"
+  value       = var.create_data_storage_policy ? aws_organizations_policy.data_storage_controls[0].id : null
 }
 
+output "logging_policy_id" {
+  description = "ID of the logging protection policy"
+  value       = var.create_logging_policy ? aws_organizations_policy.logging_protection[0].id : null
+}
+
+output "monitoring_policy_id" {
+  description = "ID of the monitoring protection policy"
+  value       = var.create_monitoring_policy ? aws_organizations_policy.monitoring_protection[0].id : null
+}
+
+output "networking_policy_id" {
+  description = "ID of the networking controls policy"
+  value       = var.create_networking_policy ? aws_organizations_policy.networking_controls[0].id : null
+}
+
+# Policy attachment information
 output "policies_attached" {
   description = "Whether policies are attached to organization"
   value       = var.attach_policies
-}
-
-output "vpc_protection_policy_id" {
-  description = "ID of the VPC protection policy"
-  value       = var.create_vpc_protection_policy ? aws_organizations_policy.deny_vpc_deletion[0].id : null
 }
 
 output "target_id" {
