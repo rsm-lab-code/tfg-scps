@@ -1,4 +1,3 @@
-
 output "scp_policy_ids" {
   description = "SCP policy IDs"
   value = {
@@ -6,7 +5,9 @@ output "scp_policy_ids" {
   }
 }
 
-output "scp_console_url" {
-  description = "URL to manage SCPs"
-  value = "https://console.aws.amazon.com/organizations/v2/home/policies/service-control-policy"
+output "scp_policy_arns" {
+  description = "SCP policy ARNs"
+  value = {
+    for k, v in aws_organizations_policy.scp_policies : k => v.arn
+  }
 }
