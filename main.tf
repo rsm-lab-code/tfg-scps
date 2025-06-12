@@ -1,50 +1,46 @@
-
-# Multi-OU SCP Implementation
-locals {
-  # Process each OU's policy files safely
-  ou_policy_files = {
-    for ou_name, ou_config in var.ou_configurations : ou_name => {
-      all_files = ou_config.enabled ? fileset(path.root, "${ou_config.policy_directory}/*.json") : []
-      files_to_use = ou_config.enabled ? tolist(slice(sort(tolist(fileset(path.root, "${ou_config.policy_directory}/*.json"))), 0, min(5, length(fileset(path.root, "${ou_config.policy_directory}/*.json"))))) : []
-    }
-  }
-
-  # Flatten all policies across all OUs
-  all_policies = merge([
-    for ou_name, ou_config in var.ou_configurations : 
-    ou_config.enabled ? {
-      for file in local.ou_policy_files[ou_name].files_to_use : 
-      "${ou_name}_${replace(basename(file), ".json", "")}" => {
-        file_path = file
-        policy_name = replace(basename(file), ".json", "")
-        ou_id = ou_config.ou_id
-      }
-    } : {}
-  ]...)
+# Get organization information
+data "aws_organizations_organization" "main" {
+  provider = aws.management_account
 }
 
-# Create SCP policies
+# Process policy files from the policies directory
+locals {
+  # Get all JSON files from the policies directory
+  policy_files = fileset(path.root, "policies/scp_target_ou/*.json")
+  
+  # Create a map of policy configurations
+  policies = {
+    for file in local.policy_files : 
+    replace(basename(file), ".json", "") => {
+      name = replace(basename(file), ".json", "")
+      content = file("${path.root}/${file}")
+      file_path = file
+    }
+  }
+}
+
+# Create SCP policies from JSON files
 resource "aws_organizations_policy" "scp_policies" {
   provider = aws.management_account
-  for_each = local.all_policies
+  for_each = var.attach_policies ? local.policies : {}
 
-  name        = each.value.policy_name
-  description = "SCP policy ${each.value.policy_name}"
+  name        = each.value.name
+  description = "SCP policy ${each.value.name}"
   type        = "SERVICE_CONTROL_POLICY"
-  content     = file("${path.root}/${each.value.file_path}")
+  content     = each.value.content
 
   tags = {
-    Name      = each.value.policy_name
+    Name      = each.value.name
     Source    = each.value.file_path
     ManagedBy = "terraform"
   }
 }
 
-# Attach policies to OUs
+# Attach policies to the target OU
 resource "aws_organizations_policy_attachment" "scp_attachments" {
   provider  = aws.management_account
-  for_each  = local.all_policies
+  for_each  = var.attach_policies ? local.policies : {}
   
   policy_id = aws_organizations_policy.scp_policies[each.key].id
-  target_id = each.value.ou_id
+  target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
 }
