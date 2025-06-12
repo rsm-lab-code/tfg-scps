@@ -1,387 +1,56 @@
-# Get organization information
-data "aws_organizations_organization" "main" {
-  provider = aws.management_account
+# Multi-OU SCP Implementation 
+locals {
+  # Define OU configurations
+  ou_configurations = {
+    target_ou = {
+      ou_id           = var.scp_target_ou_id
+      policy_directory = "policies/scp_target_ou"
+      enabled         = var.attach_scp_policies
+    }
+    # Future OUs:
+    # prod_ou = {
+    #   ou_id           = var.prod_ou_id
+    #   policy_directory = "policies/scp_prod_ou"
+    #   enabled         = var.attach_prod_scp_policies
+    # }
+  }
+
+  # Flatten all policies across all OUs
+  all_policies = merge([
+    for ou_name, ou_config in local.ou_configurations : 
+    ou_config.enabled ? {
+      for file in tolist(slice(sort(tolist(fileset(path.root, "${ou_config.policy_directory}/*.json"))), 0, 5)) : 
+      "${ou_name}_${replace(basename(file), ".json", "")}" => {
+        file_path = file
+        policy_name = replace(basename(file), ".json", "")
+        ou_id = ou_config.ou_id
+      }
+    } : {}
+  ]...)
 }
 
-# 1. IDENTITY AND ACCESS MANAGEMENT POLICY
-resource "aws_organizations_policy" "iam_controls" {
-  provider = aws.management_account
-  count    = var.create_iam_controls_policy ? 1 : 0
-  
-  name = "IAMSecurityControls"
-  type = "SERVICE_CONTROL_POLICY"
-  
-  content = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "DenyRootUserActions"
-        Effect = "Deny"
-        Action = "*"
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "aws:PrincipalType" = "Root"
-          }
-        }
-      },
-      {
-        Sid    = "DenyRootAccessKeyCreation"
-        Effect = "Deny"
-        Action = [
-          "iam:CreateAccessKey"
-        ]
-        Resource = "arn:aws:iam::*:user/root"
-      },
-      {
-        Sid    = "DenyWeakPasswordPolicies"
-        Effect = "Deny"
-        Action = [
-          "iam:UpdateAccountPasswordPolicy"
-        ]
-        Resource = "*"
-        Condition = {
-          NumericLessThan = {
-            "iam:MinPasswordLength" = "14"
-          }
-        }
-      },
-      {
-        Sid    = "DenyFullAdminPolicies"
-        Effect = "Deny"
-        Action = [
-          "iam:CreatePolicy",
-          "iam:CreatePolicyVersion",
-          "iam:AttachUserPolicy",
-          "iam:AttachGroupPolicy",
-          "iam:AttachRolePolicy"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "RequireIAMInstanceRoles"
-        Effect = "Deny"
-        Action = [
-          "ec2:RunInstances"
-        ]
-        Resource = "arn:aws:ec2:*:*:instance/*"
-        Condition = {
-          Null = {
-            "ec2:IamInstanceProfile" = "true"
-          }
-        }
-      }
-    ]
-  })
+# Create SCP policies
+resource "aws_organizations_policy" "scp_policies" {
+  provider = aws.management_account_us-west-2
+  for_each = local.all_policies
 
-  description = "IAM security controls"
-  
+  name        = each.value.policy_name
+  description = "SCP policy ${each.value.policy_name}"
+  type        = "SERVICE_CONTROL_POLICY"
+  content     = file("${path.root}/${each.value.file_path}")
+
   tags = {
-    Name        = "IAMSecurityControls"
-    Environment = "organization"
-    ManagedBy   = "terraform"
+    Name      = each.value.policy_name
+    Source    = each.value.file_path
+    ManagedBy = "terraform"
   }
 }
 
-# 2. DATA STORAGE CONTROLS POLICY
-resource "aws_organizations_policy" "data_storage_controls" {
-  provider = aws.management_account
-  count    = var.create_data_storage_policy ? 1 : 0
+# Attach policies to OUs
+resource "aws_organizations_policy_attachment" "scp_attachments" {
+  provider  = aws.management_account_us-west-2
+  for_each  = local.all_policies
   
-  name = "DataStorageControls"
-  type = "SERVICE_CONTROL_POLICY"
-  
-  content = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "EnforceS3EncryptionAtRest"
-        Effect = "Deny"
-        Action = [
-          "s3:PutObject"
-        ]
-        Resource = "*"
-        Condition = {
-          StringNotEquals = {
-            "s3:x-amz-server-side-encryption" = [
-              "AES256",
-              "aws:kms"
-            ]
-          }
-        }
-      },
-      {
-        Sid    = "EnforceHTTPSOnlyS3"
-        Effect = "Deny"
-        Action = "s3:*"
-        Resource = "*"
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
-      },
-      {
-        Sid    = "BlockPublicS3Access"
-        Effect = "Deny"
-        Action = [
-          "s3:PutBucketAcl",
-          "s3:PutBucketPolicy",
-          "s3:PutObjectAcl"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "EnforceEBSEncryption"
-        Effect = "Deny"
-        Action = [
-          "ec2:CreateVolume",
-          "ec2:RunInstances"
-        ]
-        Resource = [
-          "arn:aws:ec2:*:*:volume/*"
-        ]
-        Condition = {
-          Bool = {
-            "ec2:Encrypted" = "false"
-          }
-        }
-      },
-      {
-        Sid    = "EnforceRDSEncryption"
-        Effect = "Deny"
-        Action = [
-          "rds:CreateDBInstance",
-          "rds:CreateDBCluster"
-        ]
-        Resource = "*"
-        Condition = {
-          Bool = {
-            "rds:StorageEncrypted" = "false"
-          }
-        }
-      },
-      {
-        Sid    = "RestrictPublicRDSAccess"
-        Effect = "Deny"
-        Action = [
-          "rds:CreateDBInstance",
-          "rds:ModifyDBInstance"
-        ]
-        Resource = "*"
-        Condition = {
-          Bool = {
-            "rds:PubliclyAccessible" = "true"
-          }
-        }
-      },
-      {
-        Sid    = "EnforceEFSEncryption"
-        Effect = "Deny"
-        Action = [
-          "elasticfilesystem:CreateFileSystem"
-        ]
-        Resource = "*"
-        Condition = {
-          Bool = {
-            "elasticfilesystem:Encrypted" = "false"
-          }
-        }
-      }
-    ]
-  })
-
-  description = "Data storage security controls"
-  
-  tags = {
-    Name        = "DataStorageControls"
-    Environment = "organization"
-    ManagedBy   = "terraform"
-  }
-}
-
-# 3. LOGGING PROTECTION POLICY
-resource "aws_organizations_policy" "logging_protection" {
-  provider = aws.management_account
-  count    = var.create_logging_policy ? 1 : 0
-  
-  name = "LoggingProtectionControls"
-  type = "SERVICE_CONTROL_POLICY"
-  
-  content = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "ProtectCloudTrail"
-        Effect = "Deny"
-        Action = [
-          "cloudtrail:StopLogging",
-          "cloudtrail:DeleteTrail",
-          "cloudtrail:PutEventSelectors",
-          "cloudtrail:UpdateTrail"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "EnforceCloudTrailEncryption"
-        Effect = "Deny"
-        Action = [
-          "cloudtrail:CreateTrail",
-          "cloudtrail:UpdateTrail"
-        ]
-        Resource = "*"
-        Condition = {
-          Null = {
-            "cloudtrail:KMSKeyId" = "true"
-          }
-        }
-      }
-    ]
-  })
-
-  description = "Logging protection controls"
-  
-  tags = {
-    Name        = "LoggingProtectionControls"
-    Environment = "organization"
-    ManagedBy   = "terraform"
-  }
-}
-
-# 4. MONITORING PROTECTION POLICY
-resource "aws_organizations_policy" "monitoring_protection" {
-  provider = aws.management_account
-  count    = var.create_monitoring_policy ? 1 : 0
-  
-  name = "MonitoringProtectionControls"
-  type = "SERVICE_CONTROL_POLICY"
-  
-  content = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "ProtectGuardDuty"
-        Effect = "Deny"
-        Action = [
-          "guardduty:DeleteDetector",
-          "guardduty:DisassociateFromMasterAccount",
-          "guardduty:DisassociateMembers",
-          "guardduty:StopMonitoringMembers",
-          "guardduty:UpdateDetector"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "ProtectVPCFlowLogs"
-        Effect = "Deny"
-        Action = [
-          "ec2:DeleteFlowLogs"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-
-  description = "Monitoring protection controls"
-  
-  tags = {
-    Name        = "MonitoringProtectionControls"
-    Environment = "organization"
-    ManagedBy   = "terraform"
-  }
-}
-
-# 5. NETWORKING CONTROLS POLICY
-resource "aws_organizations_policy" "networking_controls" {
-  provider = aws.management_account
-  count    = var.create_networking_policy ? 1 : 0
-  
-  name = "NetworkingSecurityControls"
-  type = "SERVICE_CONTROL_POLICY"
-  
-  content = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "DenyServerAdminPortsFromInternet"
-        Effect = "Deny"
-        Action = [
-          "ec2:AuthorizeSecurityGroupIngress"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "ec2:FromPort" = ["22", "3389", "1433", "3306", "5432", "1521"]
-            "ec2:IpProtocol" = "tcp"
-            "ec2:cidr" = "0.0.0.0/0"
-          }
-        }
-      },
-      {
-        Sid    = "RestrictDefaultSecurityGroup"
-        Effect = "Deny"
-        Action = [
-          "ec2:AuthorizeSecurityGroupIngress",
-          "ec2:AuthorizeSecurityGroupEgress",
-          "ec2:RevokeSecurityGroupIngress",
-          "ec2:RevokeSecurityGroupEgress"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "ec2:GroupName" = "default"
-          }
-        }
-      }
-    ]
-  })
-
-  description = "Networking security controls"
-  
-  tags = {
-    Name        = "NetworkingSecurityControls"
-    Environment = "organization"
-    ManagedBy   = "terraform"
-  }
-}
-
-# POLICY ATTACHMENTS 
-resource "aws_organizations_policy_attachment" "iam_controls_attachment" {
-  provider  = aws.management_account
-  count     = var.attach_policies && var.create_iam_controls_policy ? 1 : 0
-  
-  policy_id = aws_organizations_policy.iam_controls[0].id
-  target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
-}
-
-resource "aws_organizations_policy_attachment" "data_storage_attachment" {
-  provider  = aws.management_account
-  count     = var.attach_policies && var.create_data_storage_policy ? 1 : 0
-  
-  policy_id = aws_organizations_policy.data_storage_controls[0].id
-  target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
-}
-
-resource "aws_organizations_policy_attachment" "logging_protection_attachment" {
-  provider  = aws.management_account
-  count     = var.attach_policies && var.create_logging_policy ? 1 : 0
-  
-  policy_id = aws_organizations_policy.logging_protection[0].id
-  target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
-}
-
-resource "aws_organizations_policy_attachment" "monitoring_protection_attachment" {
-  provider  = aws.management_account
-  count     = var.attach_policies && var.create_monitoring_policy ? 1 : 0
-  
-  policy_id = aws_organizations_policy.monitoring_protection[0].id
-  target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
-}
-
-resource "aws_organizations_policy_attachment" "networking_controls_attachment" {
-  provider  = aws.management_account
-  count     = var.attach_policies && var.create_networking_policy ? 1 : 0
-  
-  policy_id = aws_organizations_policy.networking_controls[0].id
-  target_id = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
+  policy_id = aws_organizations_policy.scp_policies[each.key].id
+  target_id = each.value.ou_id
 }

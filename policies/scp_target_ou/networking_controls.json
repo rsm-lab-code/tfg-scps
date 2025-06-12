@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyServerAdminPortsFromInternet",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:AuthorizeSecurityGroupIngress"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:FromPort": ["22", "3389", "1433", "3306", "5432", "1521"],
+          "ec2:IpProtocol": "tcp",
+          "ec2:cidr": "0.0.0.0/0"
+        }
+      }
+    },
+    {
+      "Sid": "RestrictDefaultSecurityGroup",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupEgress"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:GroupName": "default"
+        }
+      }
+    }
+  ]
+}

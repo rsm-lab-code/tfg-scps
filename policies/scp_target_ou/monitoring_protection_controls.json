@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ProtectGuardDuty",
+      "Effect": "Deny",
+      "Action": [
+        "guardduty:DeleteDetector",
+        "guardduty:DisassociateFromMasterAccount",
+        "guardduty:DisassociateMembers",
+        "guardduty:StopMonitoringMembers",
+        "guardduty:UpdateDetector"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ProtectVPCFlowLogs",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:DeleteFlowLogs"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
