@@ -12,10 +12,3 @@ output "scp_policy_arns" {
   }
 }
 
-output "debug_scp_vars" {
-  value = {
-    attach_scp_policies = var.attach_scp_policies
-    scp_target_ou_id = var.scp_target_ou_id
-    management_account_id = var.management_account_id
-  }
-}
