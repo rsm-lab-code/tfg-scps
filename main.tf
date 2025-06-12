@@ -5,15 +5,15 @@ data "aws_organizations_organization" "main" {
 
 # Process policy files from the policies directory
 locals {
-  # Get all JSON files from the policies directory
-  policy_files = fileset(path.root, "policies/scp_target_ou/*.json")
+  # Get all JSON files from the policies directory - USE PATH.CWD NOT PATH.ROOT
+  policy_files = fileset(path.cwd, "policies/scp_target_ou/*.json")
   
   # Create a map of policy configurations
   policies = {
     for file in local.policy_files : 
     replace(basename(file), ".json", "") => {
       name = replace(basename(file), ".json", "")
-      content = file("${path.root}/${file}")
+      content = file("${path.cwd}/${file}")  # USE PATH.CWD NOT PATH.ROOT
       file_path = file
     }
   }
