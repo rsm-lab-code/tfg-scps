@@ -15,7 +15,8 @@ locals {
     ou_config.enabled ? {
       for file in local.ou_policy_files[ou_name].files_to_use : 
       "${ou_name}_${replace(basename(file), ".json", "")}" => {
-        file_path = file
+       file_path = "${ou_config.policy_directory}/${file}"
+       # file_path = file
         policy_name = replace(basename(file), ".json", "")
         ou_id = ou_config.ou_id
       }

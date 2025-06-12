@@ -5,4 +5,4 @@ variable "ou_configurations" {
     policy_directory = string
     enabled         = bool
   }))
-}
+g
