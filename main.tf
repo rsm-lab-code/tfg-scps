@@ -1,10 +1,10 @@
+
 # Multi-OU SCP Implementation
 locals {
   # Process each OU's policy files safely
   ou_policy_files = {
     for ou_name, ou_config in var.ou_configurations : ou_name => {
       all_files = ou_config.enabled ? fileset(path.root, "${ou_config.policy_directory}/*.json") : []
-      # Take minimum of 5 or actual file count
       files_to_use = ou_config.enabled ? tolist(slice(sort(tolist(fileset(path.root, "${ou_config.policy_directory}/*.json"))), 0, min(5, length(fileset(path.root, "${ou_config.policy_directory}/*.json"))))) : []
     }
   }
@@ -15,8 +15,7 @@ locals {
     ou_config.enabled ? {
       for file in local.ou_policy_files[ou_name].files_to_use : 
       "${ou_name}_${replace(basename(file), ".json", "")}" => {
-       file_path = "${ou_config.policy_directory}/${file}"
-       # file_path = file
+        file_path = file
         policy_name = replace(basename(file), ".json", "")
         ou_id = ou_config.ou_id
       }
