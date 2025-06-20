@@ -1,46 +1,76 @@
+# ORGANIZATION INFO
+
 output "organization_id" {
   description = "AWS Organization ID"
   value       = data.aws_organizations_organization.main.id
 }
 
-# Individual policy IDs
-output "iam_controls_policy_id" {
-  description = "ID of the IAM controls policy"
-  value       = var.create_iam_controls_policy ? aws_organizations_policy.iam_controls[0].id : null
+# TIERED POLICY IDS
+
+output "root_baseline_policy_id" {
+  description = "ID of the root baseline policy"
+  value       = var.create_root_baseline_policy ? aws_organizations_policy.root_baseline[0].id : null
 }
 
-output "data_storage_policy_id" {
-  description = "ID of the data storage controls policy"
-  value       = var.create_data_storage_policy ? aws_organizations_policy.data_storage_controls[0].id : null
+output "prod_controls_policy_id" {
+  description = "ID of the production controls policy"
+  value       = var.create_prod_controls_policy ? aws_organizations_policy.prod_controls[0].id : null
 }
 
-output "logging_policy_id" {
-  description = "ID of the logging protection policy"
-  value       = var.create_logging_policy ? aws_organizations_policy.logging_protection[0].id : null
+output "nonprod_controls_policy_id" {
+  description = "ID of the non-production controls policy"
+  value       = var.create_nonprod_controls_policy ? aws_organizations_policy.nonprod_controls[0].id : null
 }
 
-output "monitoring_policy_id" {
-  description = "ID of the monitoring protection policy"
-  value       = var.create_monitoring_policy ? aws_organizations_policy.monitoring_protection[0].id : null
-}
+# POLICY ATTACHMENT STATUS
 
-output "networking_policy_id" {
-  description = "ID of the networking controls policy"
-  value       = var.create_networking_policy ? aws_organizations_policy.networking_controls[0].id : null
-}
-
-# Policy attachment information
 output "policies_attached" {
-  description = "Whether policies are attached to organization"
-  value       = var.attach_policies
+  description = "Status of policy attachments"
+  value = {
+    root_policies_attached    = var.attach_root_policies
+    prod_policies_attached    = var.attach_prod_policies
+    nonprod_policies_attached = var.attach_nonprod_policies
+  }
 }
 
-output "target_id" {
-  description = "Target ID where policies are attached"
-  value       = var.target_ou_id != "" ? var.target_ou_id : data.aws_organizations_organization.main.roots[0].id
+# OU TARGETING INFO
+
+output "target_ou_info" {
+  description = "OU targeting information"
+  value = {
+    root_id      = data.aws_organizations_organization.main.roots[0].id
+    prod_ou_id   = var.prod_ou_id
+    nonprod_ou_id = var.nonprod_ou_id
+  }
 }
+
+# SCP CONSOLE URL
 
 output "scp_console_url" {
   description = "URL to manage SCPs in AWS Console"
   value       = "https://console.aws.amazon.com/organizations/v2/home/policies/service-control-policy"
+}
+
+# TIERED SCP SUMMARY
+
+output "tiered_scp_summary" {
+  description = "Summary of tiered SCP implementation"
+  value = {
+    architecture = "3-tier (Root → Prod/NonProd OUs)"
+    policies_created = {
+      root_baseline = var.create_root_baseline_policy
+      prod_controls = var.create_prod_controls_policy
+      nonprod_controls = var.create_nonprod_controls_policy
+    }
+    policies_attached = {
+      root_attached = var.attach_root_policies
+      prod_attached = var.attach_prod_policies
+      nonprod_attached = var.attach_nonprod_policies
+    }
+    policy_hierarchy = {
+      description = "Root policies apply to all accounts, OU policies add environment-specific controls"
+      prod_accounts_get = ["Root Baseline", "Production Controls"]
+      nonprod_accounts_get = ["Root Baseline", "NonProd Controls"]
+    }
+  }
 }

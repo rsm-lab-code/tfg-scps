@@ -1,42 +1,53 @@
-variable "create_iam_controls_policy" {
-  description = "Create IAM security controls policy (root user, password policy, admin privileges, instance roles)"
+# TIERED POLICY CREATION CONTROLS
+
+variable "create_root_baseline_policy" {
+  description = "Create baseline security policy for organization root (IAM, logging, regions, monitoring)"
   type        = bool
   default     = true
 }
 
-variable "create_data_storage_policy" {
-  description = "Create data storage security policy (S3/EBS/RDS/EFS encryption, public access)"
+variable "create_prod_controls_policy" {
+  description = "Create strict controls for production OU (encryption, deletion protection, network security)"
   type        = bool
   default     = true
 }
 
-variable "create_logging_policy" {
-  description = "Create logging protection policy (CloudTrail protection and encryption)"
+variable "create_nonprod_controls_policy" {
+  description = "Create development controls for non-production OU (cost limits, tagging, basic security)"
   type        = bool
   default     = true
 }
 
-variable "create_monitoring_policy" {
-  description = "Create monitoring protection policy (GuardDuty, VPC flow logs)"
-  type        = bool
-  default     = true
-}
+# POLICY ATTACHMENT CONTROLS
 
-variable "create_networking_policy" {
-  description = "Create networking security policy (admin ports, default SG, PrivateLink, TLS)"
-  type        = bool
-  default     = true
-}
-
-# Policy attachment variables
-variable "attach_policies" {
-  description = "Attach policies to organization (set to false for testing)"
+variable "attach_root_policies" {
+  description = "Attach baseline policies to organization root"
   type        = bool
   default     = false
 }
 
-variable "target_ou_id" {
-  description = "OU ID to attach policies to (empty = organization root)"
+variable "attach_prod_policies" {
+  description = "Attach strict policies to production OU"
+  type        = bool
+  default     = false
+}
+
+variable "attach_nonprod_policies" {
+  description = "Attach development policies to non-production OU"
+  type        = bool
+  default     = false
+}
+
+# OU TARGETING
+
+variable "prod_ou_id" {
+  description = "Production OU ID for policy attachment"
+  type        = string
+  default     = ""
+}
+
+variable "nonprod_ou_id" {
+  description = "Non-production OU ID for policy attachment"  
   type        = string
   default     = ""
 }
