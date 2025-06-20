@@ -1,136 +1,39 @@
-# Strict production environment controls
-
-resource "aws_organizations_policy" "prod_controls" {
+# Development-friendly controls for non-production environments
+resource "aws_organizations_policy" "nonprod_controls" {
   provider = aws.management_account
-  count    = var.create_prod_controls_policy ? 1 : 0
+  count    = var.create_nonprod_controls_policy ? 1 : 0
   
-  name = "ProductionControls"
+  name = "NonProdControls"
   type = "SERVICE_CONTROL_POLICY"
   
   content = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # Data Storage Security
+      # Cost Control - Instance Size Limits
       {
-        Sid    = "EnforceS3EncryptionAtRest"
+        Sid    = "LimitExpensiveInstanceSizes"
         Effect = "Deny"
         Action = [
-          "s3:PutObject"
+          "ec2:RunInstances"
         ]
-        Resource = "*"
+        Resource = "arn:aws:ec2:*:*:instance/*"
         Condition = {
-          "StringNotEquals": {
-            "s3:x-amz-server-side-encryption": [
-              "AES256",
-              "aws:kms"
+          "ForAnyValue:StringLike": {
+            "ec2:InstanceType": [
+              "*.2xlarge",
+              "*.4xlarge",
+              "*.8xlarge",
+              "*.12xlarge",
+              "*.16xlarge",
+              "*.24xlarge",
+              "*.metal"
             ]
           }
         }
       },
+      # Cost Control - RDS Instance Limits
       {
-        Sid    = "EnforceHTTPSOnlyS3"
-        Effect = "Deny"
-        Action = "s3:*"
-        Resource = "*"
-        Condition = {
-          "Bool": {
-            "aws:SecureTransport": "false"
-          }
-        }
-      },
-      {
-        Sid    = "BlockPublicS3Access"
-        Effect = "Deny"
-        Action = [
-          "s3:PutBucketAcl",
-          "s3:PutBucketPolicy",
-          "s3:PutObjectAcl"
-        ]
-        Resource = "*"
-      },
-      # EBS/RDS Encryption
-      {
-        Sid    = "EnforceEBSEncryption"
-        Effect = "Deny"
-        Action = [
-          "ec2:CreateVolume",
-          "ec2:RunInstances"
-        ]
-        Resource = [
-          "arn:aws:ec2:*:*:volume/*"
-        ]
-        Condition = {
-          "Bool": {
-            "ec2:Encrypted": "false"
-          }
-        }
-      },
-      {
-        Sid    = "EnforceRDSEncryption"
-        Effect = "Deny"
-        Action = [
-          "rds:CreateDBInstance",
-          "rds:CreateDBCluster"
-        ]
-        Resource = "*"
-        Condition = {
-          "Bool": {
-            "rds:StorageEncrypted": "false"
-          }
-        }
-      },
-      # Resource Deletion Protection
-      {
-        Sid    = "DenyResourceDeletionWithoutMFA"
-        Effect = "Deny"
-        Action = [
-          "ec2:TerminateInstances",
-          "rds:DeleteDBInstance",
-          "rds:DeleteDBCluster",
-          "s3:DeleteBucket"
-        ]
-        Resource = "*"
-        Condition = {
-          "Bool": {
-            "aws:MultiFactorAuthPresent": "false"
-          }
-        }
-      },
-      # Network Security
-      {
-        Sid    = "DenyServerAdminPortsFromInternet"
-        Effect = "Deny"
-        Action = [
-          "ec2:AuthorizeSecurityGroupIngress"
-        ]
-        Resource = "*"
-        Condition = {
-          "StringEquals": {
-            "ec2:FromPort": ["22", "3389", "1433", "3306", "5432", "1521"],
-            "ec2:IpProtocol": "tcp",
-            "ec2:cidr": "0.0.0.0/0"
-          }
-        }
-      },
-      {
-        Sid    = "RestrictDefaultSecurityGroup"
-        Effect = "Deny"
-        Action = [
-          "ec2:AuthorizeSecurityGroupIngress",
-          "ec2:AuthorizeSecurityGroupEgress",
-          "ec2:RevokeSecurityGroupIngress",
-          "ec2:RevokeSecurityGroupEgress"
-        ]
-        Resource = "*"
-        Condition = {
-          "StringEquals": {
-            "ec2:GroupName": "default"
-          }
-        }
-      },
-      # Restrict Public RDS Access
-      {
-        Sid    = "RestrictPublicRDSAccess"
+        Sid    = "LimitRDSInstanceSize"
         Effect = "Deny"
         Action = [
           "rds:CreateDBInstance",
@@ -138,29 +41,110 @@ resource "aws_organizations_policy" "prod_controls" {
         ]
         Resource = "*"
         Condition = {
-          "Bool": {
-            "rds:PubliclyAccessible": "true"
+          "ForAnyValue:StringLike": {
+            "rds:DBInstanceClass": [
+              "*.large",
+              "*.xlarge",
+              "*.2xlarge",
+              "*.4xlarge",
+              "*.8xlarge"
+            ]
+          }
+        }
+      },
+      # Tagging Requirements
+      {
+        Sid    = "RequireEnvironmentTags"
+        Effect = "Deny"
+        Action = [
+          "ec2:RunInstances",
+          "rds:CreateDBInstance",
+          "s3:CreateBucket"
+        ]
+        Resource = "*"
+        Condition = {
+          "Null": {
+            "aws:RequestTag/Environment": "true"
+          }
+        }
+      },
+      {
+        Sid    = "RequireOwnerTags"
+        Effect = "Deny"
+        Action = [
+          "ec2:RunInstances",
+          "rds:CreateDBInstance"
+        ]
+        Resource = "*"
+        Condition = {
+          "Null": {
+            "aws:RequestTag/Owner": "true"
+          }
+        }
+      },
+      # Development Restrictions
+      {
+        Sid    = "DenyProductionServices"
+        Effect = "Deny"
+        Action = [
+          "workspaces:*",
+          "directconnect:*",
+          "route53domains:*"
+        ]
+        Resource = "*"
+      },
+      # Basic Data Protection (lighter than prod)
+      {
+        Sid    = "RequireS3VersioningOnImportantBuckets"
+        Effect = "Deny"
+        Action = [
+          "s3:CreateBucket"
+        ]
+        Resource = "*"
+        Condition = {
+          "StringLike": {
+            "s3:BucketName": [
+              "*prod*",
+              "*backup*",
+              "*archive*"
+            ]
+          }
+        }
+      },
+      # Region Restrictions (allow more flexibility than prod)
+      {
+        Sid    = "DenyRestrictedRegions"
+        Effect = "Deny"
+        Action = "*"
+        Resource = "*"
+        Condition = {
+          "StringEquals": {
+            "aws:RequestedRegion": [
+              "ap-southeast-3",
+              "eu-south-1",
+              "af-south-1"
+            ]
           }
         }
       }
     ]
   })
 
-  description = "Strict controls for production environments"
+  description = "Cost and resource controls for non-production environments"
   
   tags = {
-    Name        = "ProductionControls"
-    Environment = "production"
-    Level       = "prod-ou"
+    Name        = "NonProdControls"
+    Environment = "nonprod"
+    Level       = "nonprod-ou"
     ManagedBy   = "terraform"
   }
 }
 
-# Attach to production OU
-resource "aws_organizations_policy_attachment" "prod_controls_attachment" {
+# Attach to non-production OU
+resource "aws_organizations_policy_attachment" "nonprod_controls_attachment" {
   provider  = aws.management_account
-  count     = var.attach_prod_policies && var.create_prod_controls_policy ? 1 : 0
+  count     = var.attach_nonprod_policies && var.create_nonprod_controls_policy ? 1 : 0
   
-  policy_id = aws_organizations_policy.prod_controls[0].id
-  target_id = var.prod_ou_id
+  policy_id = aws_organizations_policy.nonprod_controls[0].id
+  target_id = var.nonprod_ou_id
 }
