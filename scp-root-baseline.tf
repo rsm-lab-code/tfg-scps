@@ -1,3 +1,4 @@
+#Root level SCPS
 resource "aws_organizations_policy" "root_baseline" {
   provider = aws.management_account
   count    = var.create_root_baseline_policy ? 1 : 0
@@ -15,8 +16,8 @@ resource "aws_organizations_policy" "root_baseline" {
         Action = "*"
         Resource = "*"
         Condition = {
-          StringEquals = {
-            "aws:PrincipalType" = "Root"
+          "StringEquals": {
+            "aws:PrincipalType": "Root"
           }
         }
       },
@@ -36,8 +37,8 @@ resource "aws_organizations_policy" "root_baseline" {
         ]
         Resource = "*"
         Condition = {
-          NumericLessThan = {
-            "iam:MinPasswordLength" = "14"
+          "NumericLessThan": {
+            "iam:MinPasswordLength": "14"
           }
         }
       },
@@ -62,8 +63,8 @@ resource "aws_organizations_policy" "root_baseline" {
         ]
         Resource = "*"
         Condition = {
-          Null = {
-            "cloudtrail:KMSKeyId" = "true"
+          "Null": {
+            "cloudtrail:KMSKeyId": "true"
           }
         }
       },
@@ -96,8 +97,8 @@ resource "aws_organizations_policy" "root_baseline" {
         ]
         Resource = "*"
         Condition = {
-          StringNotEquals = {
-            "aws:RequestedRegion" = ["us-west-2", "us-east-1"]
+          "StringNotEquals": {
+            "aws:RequestedRegion": ["us-west-2", "us-east-1"]
           }
         }
       }

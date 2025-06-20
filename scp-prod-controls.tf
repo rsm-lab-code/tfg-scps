@@ -1,3 +1,4 @@
+# scp-prod-controls
 resource "aws_organizations_policy" "prod_controls" {
   provider = aws.management_account
   count    = var.create_prod_controls_policy ? 1 : 0
@@ -17,8 +18,8 @@ resource "aws_organizations_policy" "prod_controls" {
         ]
         Resource = "*"
         Condition = {
-          StringNotEquals = {
-            "s3:x-amz-server-side-encryption" = [
+          "StringNotEquals": {
+            "s3:x-amz-server-side-encryption": [
               "AES256",
               "aws:kms"
             ]
@@ -31,8 +32,8 @@ resource "aws_organizations_policy" "prod_controls" {
         Action = "s3:*"
         Resource = "*"
         Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
+          "Bool": {
+            "aws:SecureTransport": "false"
           }
         }
       },
@@ -58,8 +59,8 @@ resource "aws_organizations_policy" "prod_controls" {
           "arn:aws:ec2:*:*:volume/*"
         ]
         Condition = {
-          Bool = {
-            "ec2:Encrypted" = "false"
+          "Bool": {
+            "ec2:Encrypted": "false"
           }
         }
       },
@@ -72,8 +73,8 @@ resource "aws_organizations_policy" "prod_controls" {
         ]
         Resource = "*"
         Condition = {
-          Bool = {
-            "rds:StorageEncrypted" = "false"
+          "Bool": {
+            "rds:StorageEncrypted": "false"
           }
         }
       },
@@ -89,8 +90,8 @@ resource "aws_organizations_policy" "prod_controls" {
         ]
         Resource = "*"
         Condition = {
-          Bool = {
-            "aws:MultiFactorAuthPresent" = "false"
+          "Bool": {
+            "aws:MultiFactorAuthPresent": "false"
           }
         }
       },
@@ -103,10 +104,10 @@ resource "aws_organizations_policy" "prod_controls" {
         ]
         Resource = "*"
         Condition = {
-          StringEquals = {
-            "ec2:FromPort" = ["22", "3389", "1433", "3306", "5432", "1521"]
-            "ec2:IpProtocol" = "tcp"
-            "ec2:cidr" = "0.0.0.0/0"
+          "StringEquals": {
+            "ec2:FromPort": ["22", "3389", "1433", "3306", "5432", "1521"],
+            "ec2:IpProtocol": "tcp",
+            "ec2:cidr": "0.0.0.0/0"
           }
         }
       },
@@ -121,8 +122,8 @@ resource "aws_organizations_policy" "prod_controls" {
         ]
         Resource = "*"
         Condition = {
-          StringEquals = {
-            "ec2:GroupName" = "default"
+          "StringEquals": {
+            "ec2:GroupName": "default"
           }
         }
       },
@@ -136,8 +137,8 @@ resource "aws_organizations_policy" "prod_controls" {
         ]
         Resource = "*"
         Condition = {
-          Bool = {
-            "rds:PubliclyAccessible" = "true"
+          "Bool": {
+            "rds:PubliclyAccessible": "true"
           }
         }
       }
