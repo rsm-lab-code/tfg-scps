@@ -17,8 +17,8 @@ resource "aws_organizations_policy" "nonprod_controls" {
         ]
         Resource = "arn:aws:ec2:*:*:instance/*"
         Condition = {
-          ForAnyValue:StringLike = {
-            "ec2:InstanceType" = [
+          "ForAnyValue:StringLike":  {
+            "ec2:InstanceType" : [
               "*.2xlarge",
               "*.4xlarge",
               "*.8xlarge",
