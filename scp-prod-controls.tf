@@ -114,7 +114,7 @@ resource "aws_organizations_policy" "prod_controls" {
   "Effect": "Deny",
   "Action": ["iam:AttachUserPolicy", "iam:PutUserPolicy"], 
   "Resource": "*"
-}
+},
 
 
       # Network Security
