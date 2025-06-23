@@ -97,6 +97,26 @@ resource "aws_organizations_policy" "prod_controls" {
           }
         }
       },
+   #EFS ecryption
+      {
+  "Sid": "EnforceEFSEncryption",
+  "Effect": "Deny", 
+  "Action": ["elasticfilesystem:CreateFileSystem"],
+  "Resource": "*",
+  "Condition": {
+    "Bool": {"elasticfilesystem:Encrypted": "false"}
+  }
+}, 
+
+ #Prevent direct policy attachment to IAM user
+{
+  "Sid": "PreventDirectUserPolicyAttachment",
+  "Effect": "Deny",
+  "Action": ["iam:AttachUserPolicy", "iam:PutUserPolicy"], 
+  "Resource": "*"
+}
+
+
       # Network Security
       {
         Sid    = "DenyServerAdminPortsFromInternet"
