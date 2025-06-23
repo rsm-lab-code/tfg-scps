@@ -21,6 +21,13 @@ resource "aws_organizations_policy" "root_baseline" {
           }
         }
       },
+      #Prevent accounts from leaving organization
+      {
+      "Sid": "DenyLeaveOrganization",
+      "Effect": "Deny",
+      "Action": "organizations:LeaveOrganization",
+      "Resource": "*"
+     },
       {
         Sid    = "DenyRootAccessKeyCreation"
         Effect = "Deny"

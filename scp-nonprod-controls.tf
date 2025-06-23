@@ -1,4 +1,4 @@
-# Development-friendly controls for non-production environments
+#controls for non-production environments
 resource "aws_organizations_policy" "nonprod_controls" {
   provider = aws.management_account
   count    = var.create_nonprod_controls_policy ? 1 : 0

@@ -26,6 +26,7 @@ resource "aws_organizations_policy" "prod_controls" {
           }
         }
       },
+      
       {
         Sid    = "EnforceHTTPSOnlyS3"
         Effect = "Deny"
@@ -78,6 +79,7 @@ resource "aws_organizations_policy" "prod_controls" {
           }
         }
       },
+
       # Resource Deletion Protection
       {
         Sid    = "DenyResourceDeletionWithoutMFA"
@@ -127,6 +129,24 @@ resource "aws_organizations_policy" "prod_controls" {
           }
         }
       },
+
+      # Require MFA for critical actions
+    {
+      "Sid": "RequireMFAForCriticalActions",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:TerminateInstances",
+        "ec2:StopInstances", 
+        "rds:DeleteDBInstance",
+        "rds:DeleteDBCluster"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "Bool": {
+          "aws:MultiFactorAuthPresent": "false"
+        }
+      }
+    },
       # Restrict Public RDS Access
       {
         Sid    = "RestrictPublicRDSAccess"
