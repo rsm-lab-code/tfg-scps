@@ -28,6 +28,8 @@ resource "aws_organizations_policy" "root_baseline" {
       "Action": "organizations:LeaveOrganization",
       "Resource": "*"
      },
+
+     #Deny root access key creation 
       {
         Sid    = "DenyRootAccessKeyCreation"
         Effect = "Deny"
@@ -36,6 +38,8 @@ resource "aws_organizations_policy" "root_baseline" {
         ]
         Resource = "arn:aws:iam::*:user/root"
       },
+
+      #Deny Weak Password
       {
         Sid    = "DenyWeakPasswordPolicies"
         Effect = "Deny"
@@ -61,6 +65,7 @@ resource "aws_organizations_policy" "root_baseline" {
         ]
         Resource = "*"
       },
+      #Enforce Cloud Trail Encrypiton 
       {
         Sid    = "EnforceCloudTrailEncryption"
         Effect = "Deny"
@@ -75,7 +80,7 @@ resource "aws_organizations_policy" "root_baseline" {
           }
         }
       },
-      # Monitoring Protection
+      # Protect Guard Duty 
       {
         Sid    = "ProtectGuardDuty"
         Effect = "Deny"

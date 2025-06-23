@@ -93,7 +93,7 @@ resource "aws_organizations_policy" "nonprod_controls" {
         ]
         Resource = "*"
       },
-      # Basic Data Protection (lighter than prod)
+      # Basic Data Protection 
       {
         Sid    = "RequireS3VersioningOnImportantBuckets"
         Effect = "Deny"
@@ -107,22 +107,6 @@ resource "aws_organizations_policy" "nonprod_controls" {
               "*prod*",
               "*backup*",
               "*archive*"
-            ]
-          }
-        }
-      },
-      # Region Restrictions (allow more flexibility than prod)
-      {
-        Sid    = "DenyRestrictedRegions"
-        Effect = "Deny"
-        Action = "*"
-        Resource = "*"
-        Condition = {
-          "StringEquals": {
-            "aws:RequestedRegion": [
-              "ap-southeast-3",
-              "eu-south-1",
-              "af-south-1"
             ]
           }
         }
